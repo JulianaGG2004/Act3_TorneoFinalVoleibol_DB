@@ -1,0 +1,70 @@
+//Consola 1
+md c:\mongodb\shard1\data1
+md c:\mongodb\shard1\data2
+md c:\mongodb\shard1\data3
+
+md c:\mongodb\shard2\data1
+md c:\mongodb\shard2\data2
+md c:\mongodb\shard2\data3
+
+md c:\mongodb\shard3\data1
+md c:\mongodb\shard3\data2
+md c:\mongodb\shard3\data3
+
+//Paso 2
+start mongod.exe --shardsvr --port 26017 --dbpath "c:\mongodb\shard1\data1" --replSet shard1_replset 
+start mongod.exe --shardsvr --port 26117 --dbpath "c:\mongodb\shard1\data2" --replSet shard1_replset 
+start mongod.exe --shardsvr --port 26217 --dbpath "c:\mongodb\shard1\data3" --replSet shard1_replset 
+
+//Consola 2
+start mongod.exe --shardsvr --port 28017 --dbpath "c:\mongodb\shard2\data1" --replSet shard2_replset 
+start mongod.exe --shardsvr --port 28117 --dbpath "c:\mongodb\shard2\data2" --replSet shard2_replset  
+start mongod.exe --shardsvr --port 28217 --dbpath "c:\mongodb\shard2\data3" --replSet shard2_replset
+
+//consola 3
+start mongod.exe --shardsvr --port 29017 --dbpath "c:\mongodb\shard3\data1" --replSet shard3_replset 
+start mongod.exe --shardsvr --port 29117 --dbpath "c:\mongodb\shard3\data2" --replSet shard3_replset 
+start mongod.exe --shardsvr --port 29217 --dbpath "c:\mongodb\shard3\data3" --replSet shard3_replset 
+
+//consola 1
+mongosh.exe localhost:26017
+rs.initiate({_id: "shard1_replset",members: [{ _id : 0, host:"localhost:26017" },{ _id : 1, host:"localhost:26117" },{ _id : 2, host:"localhost:26217" }]})
+
+//consola 2
+mongosh.exe localhost:28017
+rs.initiate({_id: "shard2_replset",members: [{ _id : 0, host:"localhost:28017" },{ _id : 1, host:"localhost:28117" },{ _id : 2, host:"localhost:28217" }]})
+
+//consola 3
+mongosh.exe localhost:29017 
+rs.initiate({_id: "shard3_replset",members: [{ _id : 0, host:"localhost:29017" },{ _id : 1, host:"localhost:29117" },{ _id : 2, host:"localhost:29217" }]})
+
+//consola 4
+md c:\mongodb\config_server1\data1 
+md c:\mongodb\config_server1\data2 
+md c:\mongodb\config_server1\data3
+
+start mongod.exe --configsvr --port 47017 --dbpath "c:\mongodb\config_server1\data1" --replSet configserver1_replset 
+start mongod.exe --configsvr --port 47117 --dbpath "c:\mongodb\config_server1\data2" --replSet configserver1_replset 
+start mongod.exe --configsvr --port 47217 --dbpath "c:\mongodb\config_server1\data3" --replSet configserver1_replset 
+
+mongosh.exe localhost:47017
+rs.initiate({_id: "configserver1_replset",configsvr: true,members: [{ _id : 0, host : "localhost:47017" },{ _id : 1, host : "localhost:47117" },{ _id : 2, host : "localhost:47217" }]})
+
+//consola 5
+start mongos.exe --configdb configserver1_replset/localhost:47017,localhost:47117,localhost:47217 --port 1000
+mongosh.exe localhost:1000
+
+sh.addShard("shard1_replset/localhost:26017,localhost:26117,localhost:26217") 
+sh.addShard("shard2_replset/localhost:28017,localhost:28117,localhost:28217") 
+sh.addShard("shard3_replset/localhost:29017,localhost:29117,localhost:29217")
+
+sh.status() 
+
+use db_TorneoFinalVoleibol
+db.deportistas.insertOne([{"nombre":"Juan","apellidos":"Gomez Lopez", "edad": "21", "documento": "1231456415","genero":"masculino", "equipo": "Team 1"}])
+
+sh.enableSharding("db_TorneoFinalVoleibol")
+db.deportistas.createIndex({ "documento": 1 })
+sh.shardCollection("db_TorneoFinalVoleibol.deportistas", { "documento": 1 })
+sh.enableBalancing("db_TorneoFinalVoleibol.deportistas");
+
